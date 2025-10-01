@@ -81,6 +81,29 @@ FROM support
 WHERE id IS NULL;
 ```
 
+### 4. Explore product_type
+
+
+### 5. Explore product_type
+
+
+### 6. Explore product_type
+
+
+### 7. Explore product_type
+
+
+### 8. Explore product_type
+
+
+### 9. Explore product_type
+
+
+### 10. Explore product_type
+
+
+### 11. Explore product_type
+
 
 
 
