@@ -1,10 +1,10 @@
 # Tech-Solutions-Inc.
-Tech Solutions Inc. customer-support analysis cleans and validates support and survey data, quantifies response and resolution times by category, and links customer satisfaction ratings to problem types; it produces clear SQL-based findings and recommendations to reduce response delays and improve client satisfaction and retention.
+Analyzed **Tech Solutions Inc.** customer support data to clean, validate, and standardize support tickets and survey records for accurate insights. Addressed **missing values, inconsistent categories and statuses, non-numeric responses, resolution times, and timestamp issues**. Created a **fully reliable dataset to measure response and resolution performance** by category and linked customer satisfaction ratings to problem types. Enabled **actionable recommendations to reduce response delays, improve client satisfaction, and support retention strategies.**
 
 <br>
 
 ## PROJECT OVERVIEW
-Tech Solutions Inc. has faced falling customer satisfaction over recent months. I work with the support team to inspect their support tickets and customer surveys to find root causes and give managers actionable insights. I start by validating and cleaning the support table so all rows match the documented schema and no hidden errors bias the results. Next, I calculate response and resolution statistics per category to see which request types suffer the longest waits. Finally, I join support tickets with survey ratings to measure how rating relates to specific categories — especially Bugs and Installation Problems — so the company can focus on improvements that matter most to unhappy customers.
+**Tech Solutions Inc. is a customer support-focused company** facing declining customer satisfaction over recent months. Customers have reported **delays and issues, particularly with Bugs and Installation Problems**. This project focused on analyzing support tickets and customer surveys to identify patterns and areas needing improvement. The `support` dataset included fields such as `category`, `status`, `response_time`, `resolution_time`, and `survey_rating`. Cleaning and analyzing this data ensures reliable insights, helps prioritize improvements, and enables the company to enhance overall customer experience.
 
 <img width="800" alt="image" src="https://github.com/user-attachments/assets/d65e7f2f-72c6-433a-a0d6-034884207210" />
 
@@ -19,6 +19,10 @@ Tech Solutions Inc. has faced falling customer satisfaction over recent months. 
 ## DATASET
 
 * Source: Tech Solutions Inc. internal support database
+* ERD:
+
+  <img width="300" alt="image" src="https://github.com/user-attachments/assets/2ddc3924-3464-4912-90b2-9d6bd169a634" />
+  
 * Tables:
   `support`
   | Column Name     | Data Type | Description                                                                                |
@@ -61,7 +65,9 @@ FROM support
 LIMIT 10;
 ```
 
-I run a quick preview to see a representative sample of rows and the exact stored values for each column. This helps me confirm column names, visible data formats (dates, numeric text, free text), and spot obvious problems right away (for example: values like '-' in a status, 'unlisted' in numeric fields, or mixed date formats). Seeing real rows informs the cleaning plan — which columns need parsing, which need defaulting, and whether any values require regex extraction or casting before aggregation or joins.
+I started by previewing a sample of rows from the `support` table to understand the **data structure and stored values**. This helped me identify column names, data formats, and obvious issues such as invalid entries or mixed date formats, guiding the **cleaning plan for parsing, default handling, and type corrections before further analysis**.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/4a84317c-bb3e-488a-b2d0-1401e19c5c57" />
 
 
 ### 2. Data Exploration: Understanding the `survey` Table
@@ -74,10 +80,28 @@ FROM survey
 LIMIT 10;
 ```
 
-I preview the survey table to confirm column names and sample values (customer_id mapping, rating values, timestamp formatting). This helps me check whether survey customer IDs align with support customer IDs and whether rating or timestamp fields contain unexpected text or outliers. The sample guides decisions about joins (type of join to use) and whether the timestamp needs casting or conversion before timeline analysis.
+I started by previewing a sample of rows from the `survey` table to understand the **data structure and stored values**. This helped me identify column names, data formats, and obvious issues such as invalid entries or mixed date formats, guiding the **cleaning plan for parsing, default handling, and type corrections before further analysis**.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/44ed7313-d51e-46d1-bf1f-2fcd71019efb" />
 
 
-### 3. Check `id` for NULLs
+### 1. Check the table structure
+
+```sql
+--- Understanding the table structure and data types of all the columns
+
+SELECT 
+    column_name, 
+    data_type
+FROM information_schema.columns
+WHERE table_name IN('support', 'survey');
+```
+Checked the **data types of all columns** from both the tables to confirm they **match expectations and to identify any necessary type conversions during cleaning**.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/ea89b3f6-f351-4984-b6d8-8ab01687e0ee" />
+
+
+### 4. Check `id` for NULLs
 
 ```sql
 -- Checking id column for missing, NULL, or inconsistent values
@@ -87,10 +111,10 @@ FROM support
 WHERE id IS NULL;
 ```
 
-This query verifies the primary-key integrity by explicitly checking for NULL ids. A non-empty result would signal a serious data ingestion error because id must uniquely identify each ticket; if any NULLs appear, I will escalate to ETL or fix by assigning surrogate IDs before analysis. Confirming there are no NULLs gives confidence that grouping, deduplication, and downstream joins that rely on ID will behave correctly.
+I verified whether `id` had any missing values. Since this is the **primary key**, it must **not contain NULLs**. This check confirmed **data integrity for unique identification**.
 
 
-### 4. Explore customer_id column
+### 5. Explore customer_id column
 
 ```sql
 -- Checking customer_id column for missing, NULL, or inconsistent values
@@ -100,10 +124,12 @@ FROM support
 ORDER BY  customer_id;
 ```
 
-Listing distinct customer_id values shows whether NULL or unexpected IDs exist and helps gauge the customer coverage in the support table. It also reveals odd values (negative numbers, zeros used as placeholders, or text) that need correction or imputation. Knowing the distinct customer_id set helps plan joins with the survey (to check how many support customers also filled surveys) and informs whether to replace NULLs with 0 as a default.
+Checked all unique `customer_id` values to identify **NULLs, placeholders, or invalid entries**. This ensured that all customer identifiers were valid and ready for accurate joins with the `survey` table, allowing proper mapping of **support interactions to customer feedback**.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/cf70c11d-62f7-4791-854b-2de924569cf4" />
 
 
-### 5. Explore the category column
+### 6. Explore the category column
 
 ```sql
 -- Checking category column for missing, NULL, or inconsistent values
@@ -112,10 +138,12 @@ SELECT DISTINCT category
 FROM support;
 ```
 
-This query finds all unique category values so I can detect typos, capitalization issues, or placeholders (like '-' or empty strings). Identifying those issues lets me map invalid or missing categories to the canonical set (Feedback, Billing Enquiry, Bug, Installation Problem, Other). Correct category mapping is crucial because most of our aggregations (response time by category, priority lists) group by this column — inconsistent categories would fragment results and hide true trends.
+Checked all unique `category` values to identify **missing, inconsistent, or invalid entries**. This ensured that all categories matched the expected set — **Feedback, Billing Enquiry, Bug, Installation Problem, and Other** — for accurate grouping and reliable analysis.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/efe96d5d-09a9-4552-a83f-5a2a16e4b9ac" />
 
 
-### 6. Explore the status column
+### 7. Explore the status column
 
 ```sql
 -- Checking status column for missing, NULL, or inconsistent values
@@ -124,10 +152,12 @@ SELECT DISTINCT status
 FROM support;
 ```
 
-I use this to list all recorded statuses and spot invalid entries (for example, '-' or misspellings). If I find entries outside the expected set (Open, In Progress, Resolved), I will map them to the correct default (Resolved per the spec). Clean status values ensure accurate counts for open vs closed tickets and avoid wrong measures of backlog or SLA compliance.
+Checked all unique `status` values to identify **missing values (NULL), placeholder characters (-), capitalization, or spacing issues.** This ensured that all statuses matched the expected set — **Open, In Progress, and Resolved** — for accurate tracking of ticket progress and SLA compliance.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/68345519-3e4a-4980-9785-7acdbee72430" />
 
 
-### 7. Explore creation_date
+### 8. Explore creation_date
 
 ```sql
 -- Checking creation_date column for missing, NULL, or inconsistent values
@@ -137,10 +167,12 @@ FROM support
 ORDER BY creation_date;
 ```
 
-This query shows every creation_date value so I can verify the entire date range and detect NULLs or malformed dates. I check that dates fall within 2023 (per the requirement); any NULLs will be replaced with '2023-01-01' per the data rules. Confirming date integrity matters for time-series analysis, trend detection, and aligning support activity with survey timestamps.
+Listed distinct `creation_date` values to verify the **full date range and identify NULLs or malformed dates**. I ensure that **dates fall within 2023**, as required, and replace any NULLs with **'2023-01-01'** according to the data rules. Confirming date integrity is essential for **time-series analysis, trend detection, and aligning support activity with survey timestamps**.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/2971fdd0-edfb-4919-8d50-e7d08d8f3136" />
 
 
-### 8. Explore reponse_time column
+### 9. Explore reponse_time column
 
 ```sql
 -- Checking response_time column for missing, NULL, or inconsistent values
@@ -150,10 +182,12 @@ FROM support
 ORDER BY response_time;
 ```
 
-I list unique response_time values to inspect range, granularity, and any non-numeric entries. This helps me find anomalies (negative values, huge outliers, or text) and decide whether to cast or impute. Because response_time drives the hypothesis about customer dissatisfaction, I must ensure missing values are handled (replace with 0) and that unrealistic values are flagged for investigation before computing min/max or averages.
+Listed unique `response_time`  values to inspect their **range, granularity, and any non-numeric entries**. This allows me to identify missing values **(NULL), anomalies, such as negative values, extreme outliers, or text, and determine whether to cast or impute them.**
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/63cc08b5-1c1b-4e05-a473-008e05da8903" />
 
 
-### 9. Explore resolution_time column
+### 10. Explore resolution_time column
 
 ```sql
 -- Checking resolution_time column for missing, NULL, or inconsistent values
@@ -163,10 +197,25 @@ FROM support
 ORDER BY resolution_time;
 ```
 
-resolution_time may contain mixed formats (numeric, text like '8 hours', or empty strings). This query surfaces those formats and outliers so I can plan numeric parsing (REGEXP_REPLACE or explicit casting), impute NULLs with 0, and round to two decimals. Clean, numeric resolution_time is essential for accurate hour-based SLA reporting and for comparing resolution times across categories.
+Listed unique `resolution_time` values to identify mixed formats, such as **text entries or empty strings**. This ensured that all values were **cleaned, converted to numeric form, and ready for accurate hour-based SLA reporting and category comparisons.**
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/2a29a9b2-b285-4eb9-ad2a-c8f7453974c7" />
 
 
-### 10. Explore customer_id column
+After thoroughly exploring each column of the `support` table, we observed the following:
+
+* `id`: This column was perfect with **1987 unique IDs**, no NULLs or inconsistencies, providing a reliable primary key. **No cleaning was needed.**
+* `customer_id`: Contained **1237 unique customer IDs** with no missing or invalid values, ensuring accurate mapping to surveys.
+* `category`: Had **5 distinct categories**. Any NULLs, missing, or inconsistent values were replaced with **'Other' to maintain consistent grouping**.
+* `status`: Contained **4 distinct values**, including one inconsistent entry '-'. This was corrected to **'Resolved' to ensure accurate ticket tracking**.
+* `creation_date`: Included 334 distinct dates. Any NULL or invalid entries were replaced with '2023-01-01' to maintain timeline consistency.
+* `response_time`: Had **15 distinct values**. NULLs or missing entries were replaced with **0 to enable accurate response analysis.**
+* `resolution_time`: **Contained 246 distinct hours**. Any NULL or non-numeric entries were replaced with **0 and cast carefully to numeric for reliable SLA reporting**.
+
+By addressing these issues—**replacing missing values, correcting inconsistencies, and standardizing formats**—I created a **clean and reliable dataset**. This enables precise analysis of response times, ticket categories, SLA performance, and customer satisfaction trends, providing a solid foundation for operational improvements.
+
+
+### 11. Explore customer_id column
 
 ```sql
 -- Checking customer_id column for missing, NULL, or inconsistent values
@@ -176,10 +225,12 @@ FROM survey
 ORDER BY customer_id;
 ```
 
-I list unique survey customer_ids to understand how many customers provided feedback and to identify IDs that will match (or not) with support.customer_id. This helps estimate join coverage (how many support tickets have an associated survey rating) and whether we need to treat unmatched rows when combining datasets for correlation analysis between response_time and rating.
+Listed unique `survey` `customer_id` values to see how many customers submitted feedback and to identify matches with `support.customer_id`. This ensured **accurate join coverage and guided handling of unmatched rows** when analyzing the relationship between response_time and survey ratings.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/fda2bb5e-b583-452e-b13a-a4a9e88e4922" />
 
 
-### 11. Explore the rating column
+### 12. Explore the rating column
 
 ```sql
 -- Checking rating column for missing, NULL, or inconsistent values
@@ -189,10 +240,12 @@ FROM survey
 ORDER BY rating;
 ```
 
-This query confirms the actual rating values and exposes unexpected numbers or NULLs. I check the range and distinct counts to ensure ratings align with expected scales and to decide whether NULL ratings should be flagged, imputed, or excluded. Clean rating values allow trustworthy calculations of average rating by category and correlation studies with response_time.
+Listed unique `rating` values to check for unexpected numbers or NULLs. This ensured **all ratings aligned** with the expected scale and were ready for accurate category averages and correlation analysis with `response_time`.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/6140e3fc-18a2-416c-a6ca-f1e13f5226b8" />
 
 
-### 12. Explore the timestamp column
+### 13. Explore the timestamp column
 
 ```sql
 -- Checking timestamp column for missing, NULL, or inconsistent values
@@ -201,13 +254,25 @@ SELECT DISTINCT timestamp
 FROM survey
 ORDER BY timestamp;
 ```
-I list distinct timestamps to inspect their format, granularity, and range. This helps verify whether timestamps align with the creation_date window in support and whether any conversion is needed (e.g., epoch to date). Correct timestamps enable temporal joins and analyses (e.g., measuring rating changes after support interactions or analyzing trends over time).
+Listed distinct `timestamp` values to inspect their **format, granularity, and range**. This ensured alignment with `support.creation_date` and prepared the data for **accurate temporal joins and trend analyses.**
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/dd0d276a-9030-44eb-9cf1-2183a1fb12fa" />
 
 
-### 13. Cleaning the Dataset
+After thoroughly exploring each column of the `survey` table, we observed the following:
+
+* `survey_id`: This column was perfect with **1987 unique IDs**, no NULLs or inconsistencies, providing a reliable primary key. **No cleaning was needed.**
+* `customer_id`: Contained **192 distinct customer IDs**, ensuring each survey could be accurately linked to a support ticket.
+* `rating`: **Had 6 distinct values**, all valid and within the expected scale, enabling precise analysis of customer satisfaction.
+* `timestamp`: Included **10 distinct timestamps with no missing or invalid entries**, supporting accurate temporal analysis of survey submissions.
+
+By reviewing these columns and confirming their integrity, we ensured a **clean and reliable survey dataset**. This allows accurate correlation analysis with support tickets and meaningful insights into customer satisfaction trends.
+
+
+### 14. Cleaning the Dataset
 
 ```sql
---- Cleaning and replacing missing values, NULLS, incosistent data from our dataset for accurate analysis.
+--- Cleaning and replacing missing values, NULLS, and inconsistent data from our dataset for accurate analysis.
 
 SELECT
 	-- Required, never NULL per specs
@@ -218,11 +283,11 @@ SELECT
     COALESCE(customer_id, 0) AS customer_id,  -- NULL → 0
 
 
-	---  Replacing NULL with 'Other' in category column
+	---  Replacing NULL with 'Other' in the category column
     CASE 
         WHEN category IS NULL 
 			THEN 'Other'
-        WHEN category NOT IN ('Feedback','Billing Enquiry','Bug','Installation Problem','Other') 
+        WHEN category NOT IN ('Feedback',' Billing Enquiry', 'Bug', 'Installation Problem', 'Other') 
 			THEN 'Other'
         ELSE category
     END AS category,  -- NULL/invalid → 'Other'
@@ -232,7 +297,7 @@ SELECT
     CASE
         WHEN status IS NULL 
 			THEN 'Resolved'
-        WHEN status NOT IN ('Open','In Progress','Resolved') 
+        WHEN status NOT IN ('Open', 'In Progress',' Resolved') 
 			THEN 'Resolved'
         ELSE status
     END AS status,  -- NULL/invalid → 'Resolved'
@@ -259,10 +324,12 @@ SELECT
 FROM support;
 ```
 
-The cleaning step uses a CTE to standardize and prepare the support dataset for all subsequent analyses. By applying COALESCE to replace missing numeric and date fields with safe defaults (e.g., customer_id → 0, creation_date → ‘2023-01-01’, response_time → 0) and CASE statements to validate categorical columns like category and status, every value is brought in line with the defined data rules. The REGEXP_REPLACE and NULLIF functions clean resolution_time by removing stray text, converting blanks to NULLs, and safely casting to numeric, followed by rounding for uniform precision. This process ensures the dataset maintains structural and type consistency while retaining all records, preventing future queries—especially joins and aggregations—from breaking or producing misleading results. Using a CTE makes the cleaned version reusable across the project, providing a single, reliable data source for trend, performance, and satisfaction analysis.
+I cleaned the support dataset thoroughly to prepare it for reliable analysis. First, I replaced NULLs with safe defaults, such as 0 for `customer_id` and `response_time`, and ‘2023-01-01’ for `creation_date`, ensuring no record was incomplete or unusable. Next, I standardized key columns like `category` and `status`, mapping invalid or missing entries to canonical values so that inconsistencies would not break aggregations or groupings later on. I also cleaned `resolution_time` by removing stray text, converting blanks to NULLs, casting to numeric, and rounding for uniform precision. I tested each transformation individually using a CTE before combining everything into a single cleaned dataset. This cleaning process was critical because even minor inconsistencies could produce misleading results—for example, inaccurate SLA calculations or distorted response-time trends. By carefully preparing the dataset, I created a solid foundation for analysis, enabling confident exploration of trends, performance by category, and correlations between support efficiency and customer satisfaction.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/bf792794-4f3f-45f7-beca-61574a07b7bf" />
 
 
-### 14. Calculate the minimum and maximum response time by category
+### 15. Calculate the minimum and maximum response time by category
 
 ```sql
 -- Getting the min and max response time and rounding the values to 2 decimal places. Grouping by category to get the min and max for each group.
@@ -275,10 +342,12 @@ FROM support
 GROUP BY category;
 ```
 
-I grouped data by category to find the minimum and maximum response times, replacing missing values with 0 and rounding results to two decimals. This helped identify which ticket types had the slowest or most inconsistent response times, allowing the team to pinpoint where delays were most common and improve efficiency.
+I analyzed the minimum and maximum `response_time` for each ticket `category` to understand the full range of support performance. By identifying which categories, such as Bugs or Installation Problems, experienced the slowest or most inconsistent responses, I could clearly see where delays were most common and which areas needed attention. This detailed understanding of response-time distribution allowed the team to pinpoint inefficiencies, prioritize improvements, and enhance overall support efficiency.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/7d650108-98b9-4638-8acb-db6c728b37b1" />
 
 
-### 15. Link survey ratings with support tickets for Bug and Installation Problem categories
+### 16. Link survey ratings with support tickets for Bug and Installation Problem categories
 
 ```sql
 --- Joining the table to 
@@ -295,39 +364,39 @@ WHERE s.category = 'Bug'
 	OR s.category = 'Installation Problem';
 ```
 
-I joined the support and survey tables on customer_id to examine ratings for ‘Bug’ and ‘Installation Problem’ tickets. This revealed how response times in technical issue categories affected customer satisfaction, offering clear insights into where faster resolutions could lead to higher ratings.
+I analyzed support `tickets` with survey `ratings`, focusing on categories like Bugs and Installation Problems. By examining how response times in these technical issue categories affected customer satisfaction, I could identify where faster resolutions would most improve `ratings`. This insight allowed the team to prioritize efforts on the areas that matter most to unhappy customers, optimize support workflows, and enhance overall customer experience.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/3b709568-bfaf-4da7-aa9f-29e59e697902" />
 
 
 <br>
 
 ## INSIGHTS AND FINDINGS
 
-* The support table contained a mix of valid and invalid values that would distort analyses if not fixed: NULL customer_ids, malformed category/status values, non-numeric resolution_time, and some missing dates. Cleaning removes these risks and creates a stable baseline for reporting.
-* After enforcing defaults, every ticket has a defined category, status, creation_date, response_time, and numeric resolution_time. This consistency enables correct group-by calculations and reliable joins with survey ratings.
-* Category-level response time ranges reveal which categories suffer slow responses (high max_response) and which show consistent handling (small min–max gap). Large gaps indicate inconsistent processes or occasional backlogs.
-* The join between support and survey for Bug and Installation Problem returned 123 rows, giving direct evidence to evaluate whether longer response times in these categories correlate with lower ratings.
-* Using defaults of 0 for response_time can compress statistics; therefore, inspection of the original NULL pattern matters before deciding to interpret zeros as true measurements or as imputed defaults.
+* NULLs, invalid categories/statuses, missing dates, and non-numeric resolution_time were **replaced or corrected**, creating a **reliable dataset for analysis**.
+* Bugs and Installation Problems show the **highest max_response (13–17)**, while Feedback and Other categories have lower, more consistent response times, highlighting **areas with potential delays**.
+* Joining support with a survey for Bug and Installation Problem tickets returned 123 rows, showing that **longer response times in these categories correspond with lower customer satisfaction ratings**.
 
 <br>
 
 ## RECOMMENDATIONS
-* Build a persistent cleaned view or materialized view using the Task 1 cleaning logic. Use this view as the source for dashboards and all team analyses so everyone uses the same rules for defaults and category mapping.
-* Prioritize reducing max_response for categories with the highest worst-case waits. For categories with large min–max ranges, audit ticket workflows to find bottlenecks or handoffs that cause inconsistent response times.
-* For Bug and Installation Problem tickets, run a focused follow-up: compute average rating by response_time bins (e.g., 0, 1–2, 3–7, 8+ days) to quantify rating impact per extra response day; then set SLA targets tied to rating improvements.
-* Replace imputed zeros with more meaningful markers where possible: if response_time is unknown due to logging failures, flag these as 'missing' rather than zero to avoid skewing aggregates; alternatively, track and fix ingestion errors to reduce the need for imputation.
-* Collect or complete missing resolution_time or price-like data at ingestion (source systems) to avoid post-hoc regex fixes; require numeric typing at ETL time.
-* Run regular data quality checks (counts, distinct value lists, percentage NULL per column) and report anomalies to the data engineering team to stop bad values earlier in the pipeline.
+* Build a persistent cleaned view to ensure **consistent defaults and category mapping across all analyses**.
+* Prioritize **reducing max_response** for categories with the **slowest tickets and audit workflows** for large min–max gaps to fix bottlenecks.
+* Compute average rating by response_time bins for Bugs and Installation Problems to link **SLA targets with improved customer satisfaction**.
+* Replace imputed zeros in response_time with **meaningful markers or fix ingestion errors to avoid skewed aggregates**.
+* Ensure resolution_time and other numeric fields are **complete and correctly typed** at ingestion to eliminate post-hoc cleaning.
+* Perform **regular data quality checks** on counts, distinct values, and NULL percentages, reporting anomalies to the engineering team.
 
 <br>
 
 ## FINAL NOTES
-This analysis shows how a short validation and cleaning step prevents misleading statistics and supports reliable, actionable insights. By standardizing categories, statuses, dates, and numeric fields, Tech Solutions can measure response performance accurately and link it to customer satisfaction. The focused join on Bug and Installation Problem tickets produces a clear sample to analyze how response delays translate into lower ratings; this directs operational fixes where they matter most. Implementing a standard cleaned view, tightening ingestion rules, and using SLA-driven improvements for slow categories will help reverse the decline in customer satisfaction and protect customer retention.
+This analysis demonstrated how SQL can **transform raw, inconsistent support data into actionable insights for Tech Solutions**. By systematically validating and cleaning categories, statuses, dates, and numeric fields, the company can **measure response performance accurately and link it to customer satisfaction**. The focus on Bug and Installation Problem tickets provides a clear sample to understand **how delays impact ratings, guiding operational improvements where they matter most**. Future steps could include building a standard cleaned view, enforcing **stricter ingestion rules**, and using **SLA-driven targets** to improve slow-response categories and **boost overall customer retention**.
 
 <br>
 
 ## REFERENCE
 
-* DataCamp
-* Internal Tech Solutions Inc. schema and support/survey tables.
+* [DataCamp](https://app.datacamp.com/)
+* Internal Tech Solutions Inc. 
   
 <br>
