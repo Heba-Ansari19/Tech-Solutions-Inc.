@@ -350,7 +350,7 @@ I analyzed the minimum and maximum `response_time` for each ticket `category` to
 ### 16. Link survey ratings with support tickets for Bug and Installation Problem categories
 
 ```sql
---- Joining the table to 
+--- Joining the tables
 
 SELECT 
 	su.rating,
